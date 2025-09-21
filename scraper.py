@@ -1,58 +1,38 @@
-import requests
-from bs4 import BeautifulSoup
-import json
-import os
-from datetime import datetime
+from playwright.sync_api import sync_playwright
+import time
 
-API_KEY = os.getenv("SCRAPINGBEE_API_KEY")
-url = "https://sankanime.com/watch/nine-rulers-crown-19741"  # URL baru
-
-params = {
-    'api_key': API_KEY,
-    'url': url,
-    'render_js': 'true',
-    'wait': '20000',  # Tunggu 20 detik agar halaman termuat
-    'wait_for': '.app-container',
-    'premium_proxy': 'true',
-}
-
-try:
-    print("🚀 Mengirim request ke ScrapingBee...")
-    response = requests.get('https://app.scrapingbee.com/api/v1/', params=params)
-
-    if response.status_code == 200:
-        print("✅ Berhasil mengambil halaman!")
-        
-        # Simpan HTML mentah untuk debugging
-        with open("debug_page.html", "w", encoding="utf-8") as f:
-            f.write(response.text)
-        print("🔍 HTML halaman disimpan ke debug_page.html")
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        qualities = ['360p', '480p', '720p', '1080p']
-        found_links = {}
-
-        for quality in qualities:
-            link_element = soup.find('a', text=quality)
-            if link_element and link_element.has_attr('href'):
-                found_links[quality] = link_element['href']
-                print(f"✅ Ditemukan: {quality} -> {link_element['href']}")
-            else:
-                print(f"❌ Link untuk {quality} tidak ditemukan")
-
-        # Simpan hasil ke JSON
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"links_{timestamp}.json"
-
-        with open(filename, 'w') as f:
-            json.dump(found_links, f, indent=2)
-
-        print(f"✅ Hasil disimpan ke {filename}")
-
-    else:
-        print(f"❌ Gagal mengambil halaman. Status code: {response.status_code}")
-        print("Response:", response.text)
-
-except Exception as e:
-    print(f"❌ Terjadi error: {e}")
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    page = browser.new_page()
+    url = "https://sankanime.com/watch/nine-rulers-crown-19741"
+    
+    page.goto(url)
+    print("🚀 Halaman terbuka, menunggu player muncul...")
+    
+    # Tunggu player video muncul
+    page.wait_for_selector('.art-video-player', timeout=20000)
+    print("✅ Player ditemukan!")
+    
+    # Klik tombol setting
+    page.click('.art-control-setting')
+    print("🔧 Klik tombol setting...")
+    
+    # Tunggu menu quality muncul
+    page.wait_for_selector('.art-setting-item[data-name="hls-quality"]', timeout=10000)
+    print("📁 Menu quality ditemukan!")
+    
+    # Klik menu quality
+    page.click('.art-setting-item[data-name="hls-quality"]')
+    print("📂 Klik menu quality...")
+    
+    # Tunggu opsi resolusi muncul
+    page.wait_for_selector('.art-setting-panel', timeout=10000)
+    
+    # Ambil semua opsi resolusi
+    qualities = page.query_selector_all('.art-setting-item')
+    for q in qualities:
+        text = q.inner_text().strip()
+        if any(res in text for res in ['360p', '480p', '720p', '1080p']):
+            print(f"Ditemukan: {text}")
+    
+    browser.close()
