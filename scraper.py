@@ -4,18 +4,14 @@ import json
 import os
 from datetime import datetime
 
-# Token API ScrapingBee
 API_KEY = os.getenv("SCRAPINGBEE_API_KEY")
+url = "https://sankanime.com/watch/nine-rulers-crown-19741"  # URL baru
 
-# URL target episode anime
-url = "https://sankanime.com/anime/episode-xxx"  # Ganti dengan URL episode yang valid
-
-# Parameter request ke ScrapingBee
 params = {
     'api_key': API_KEY,
     'url': url,
     'render_js': 'true',
-    'wait': '15000',
+    'wait': '20000',  # Tunggu 20 detik agar halaman termuat
     'wait_for': '.app-container',
     'premium_proxy': 'true',
 }
@@ -26,6 +22,12 @@ try:
 
     if response.status_code == 200:
         print("✅ Berhasil mengambil halaman!")
+        
+        # Simpan HTML mentah untuk debugging
+        with open("debug_page.html", "w", encoding="utf-8") as f:
+            f.write(response.text)
+        print("🔍 HTML halaman disimpan ke debug_page.html")
+
         soup = BeautifulSoup(response.text, 'html.parser')
 
         qualities = ['360p', '480p', '720p', '1080p']
@@ -36,6 +38,8 @@ try:
             if link_element and link_element.has_attr('href'):
                 found_links[quality] = link_element['href']
                 print(f"✅ Ditemukan: {quality} -> {link_element['href']}")
+            else:
+                print(f"❌ Link untuk {quality} tidak ditemukan")
 
         # Simpan hasil ke JSON
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -48,6 +52,7 @@ try:
 
     else:
         print(f"❌ Gagal mengambil halaman. Status code: {response.status_code}")
+        print("Response:", response.text)
 
 except Exception as e:
     print(f"❌ Terjadi error: {e}")
